@@ -25,4 +25,5 @@ export interface ConversationSession {
   endTime?: string;
   messages: ConversationMessage[];
   resolvedErrors: ResolvedError[];
+  directory: string;
 }

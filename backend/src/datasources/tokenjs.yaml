@@ -3,7 +3,7 @@ config:
   provider: openai-compatible
   baseURL: http://localhost:1234/v1/
   models:
-    - name: hermes-3-llama-3.2-3b
+    - name: deepseek-r1-distill-qwen-7b
       config:
         temperature: 0.1
         max_tokens: 1000

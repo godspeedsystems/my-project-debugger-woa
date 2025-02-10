@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "@types/cli-progress": "^3.11.6",
+    "cli-progress": "^3.12.0",
+    "graphology": "^0.26.0",
+    "graphology-metrics": "^2.3.1"
+  }
+}

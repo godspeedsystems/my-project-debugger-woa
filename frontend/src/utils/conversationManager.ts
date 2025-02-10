@@ -1,13 +1,21 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { ConversationSession, ConversationMessage, ResolvedError } from '../types/conversation';
+import ora from 'ora';
+import axios from 'axios';
+import { promisify } from 'util';
+import { exec as execCb } from 'child_process';
+import { spinner } from '../cli/index';
+const exec = promisify(execCb);
 
 export class ConversationManager {
   private sessionsPath: string;
   private sessions: Map<string, ConversationSession>;
   private timezone: string;
+  private directory: string;  
 
   constructor(baseDir: string) {
+    this.directory = baseDir; 
     this.sessionsPath = path.join(baseDir, '.superdebugger', 'sessions');
     this.sessions = new Map();
     this.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -15,6 +23,8 @@ export class ConversationManager {
 
   async initialize(): Promise<void> {
     await fs.mkdir(this.sessionsPath, { recursive: true });
+    console.log("Directory: ", this.directory);
+    await this.getRepoMap(this.directory);
   }
 
   private getFormattedTimestamp(): string {
@@ -33,18 +43,48 @@ export class ConversationManager {
     return `${formatted}-${ms}`.replace(/[/,:\s]/g, '-');
   }
 
-  async createSession(): Promise<ConversationSession> {
+  // Modified createSession to accept a directory parameter and attach it to the session object.
+  async createSession(directory?: string): Promise<ConversationSession> {
     const timestamp = this.getFormattedTimestamp();
     const session: ConversationSession = {
       id: timestamp,
       startTime: timestamp,
       messages: [],
-      resolvedErrors: []
+      resolvedErrors: [],
+      // Attach the directory property to the session.
+      directory: directory || process.cwd()
     };
     
     await this.saveSession(session);
     this.sessions.set(session.id, session);
     return session;
+  }
+
+  async getRepoMap(directory: string): Promise<string> {
+    try {
+      spinner.text = "Gathering project context...";
+      const { stdout, stderr } = await exec('git remote get-url origin', { cwd: directory });
+      if (stderr) {
+        spinner.warn(`Stderr: ${stderr}`);
+      }
+      const gitUrl = stdout.trim();
+      spinner.info(`Obtained git URL: ${gitUrl}`);
+      const response = await axios.post('http://localhost:3000/repomap', { gitUrl });
+      const repocontext = response.data;
+      const outputDir = path.join(directory, '.superdebugger');
+      const outputFile = path.join(outputDir, 'context.json');
+      try {
+        await fs.access(outputDir);
+      } catch {
+        await fs.mkdir(outputDir, { recursive: true });
+      }
+      await fs.writeFile(outputFile, JSON.stringify(repocontext, null, 2), 'utf-8');
+      spinner.succeed(`Repocontext obtained and saved to ${outputFile}`);
+      return outputFile;
+    } catch (error: any) {
+      spinner.warn(`Failed to get repo context: ${error.message}. Continuing without repo context.`);
+      return '';
+    }
   }
 
   async addMessage(sessionId: string, message: ConversationMessage): Promise<void> {

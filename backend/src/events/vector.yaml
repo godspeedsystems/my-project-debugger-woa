@@ -154,3 +154,18 @@ http.post./chat:
           anyOf:
             - required: [messages]
             - required: [prompt]
+http.post./repomap:
+  summary: "Generate a repository map from a provided Git repository URL"
+  authn: false
+  fn: getRepMap
+  body:
+    content:
+      application/json:
+        schema:
+          type: object
+          properties:
+            gitUrl:
+              type: string
+              description: "The Git repository URL to generate a repo map from."
+              example: "https://github.com/example/repo.git"
+          required: [gitUrl]
